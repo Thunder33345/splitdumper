@@ -7,6 +7,7 @@ Dump all destinations of a split.to link
 You can install it with `go install github.com/Thunder33345/splitdumper/cmd/splitdumper`
 
 ## Split dumper Usage
+`splitdumper http://url1 http://url2`
 ```
 Usage:
 splitdumper.exe [OPTIONS] [Urls...]

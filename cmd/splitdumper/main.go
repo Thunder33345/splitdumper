@@ -15,19 +15,19 @@ var opts struct {
 	Limit   int           `short:"l" long:"limit" description:"How many times all url should be seen before stopping" default:"3"`
 	Raw     bool          `short:"r" long:"raw" description:"Outputs only the end result"`
 	Args    struct {
-		Urls []string `description:"The urls to dump" required:"1"`
+		Urls []string `description:"The urls to dump (required)" required:"1"`
 	} `positional-args:"yes"`
 }
 
 func main() {
 	parser := flags.NewParser(&opts, flags.HelpFlag|flags.PassDoubleDash)
 	_, err := parser.Parse()
-	if flags.WroteHelp(err) { //todo test this
-
+	if flags.WroteHelp(err) {
 		parser.WriteHelp(os.Stdout)
 		os.Exit(0)
 		return
 	}
+
 	if err != nil {
 		fmt.Printf("Error parsing arguments: %v\nUse %v --help to see help", err, os.Args[0])
 		os.Exit(1)
