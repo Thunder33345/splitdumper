@@ -6,6 +6,7 @@ import (
 	"github.com/jessevdk/go-flags"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 )
 
@@ -57,6 +58,7 @@ func main() {
 		if !opts.Raw {
 			fmt.Printf("Found %d destinations:\n", len(urls))
 		}
+		sort.Strings(urls)
 		for _, dest := range urls {
 			fmt.Println(dest)
 		}
