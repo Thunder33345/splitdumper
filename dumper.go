@@ -1,41 +1,78 @@
 package splitdumper
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
 )
 
-//Dump dumps a split.to link
-//url is the split.to link to dump
-//limit is how many times all known sites must be seen before stopping
-func Dump(client http.Client, url string, limit int) ([]string, error) {
-	return dump(client, url, limit, func() {})
+//Dump dumps a split.to link with given list of Option
+//Url is the split.to link to dump, limit is the minimum requirement for each links to be seen
+//returns a list of destination links
+//presence of error denotes if links should be considered partial/incomplete
+//When given context gets cancelled, error will be context.Canceled
+//If no client has been provided, default http client will be used with a timeout
+//this behaviour should not be relied upon, using WithClient is recommended.
+func Dump(url string, limit int, opts ...Option) ([]string, error) {
+	c := config{
+		url:     url,
+		limit:   limit,
+		context: context.Background(),
+	}
+	for _, o := range opts {
+		o(&c)
+	}
+
+	if c.client == nil {
+		hc := *http.DefaultClient
+		const timeout = 10 * time.Second
+		hc.Timeout = timeout
+		c.client = &hc
+	}
+	if c.wait == nil {
+		c.wait = func() {}
+	}
+	if c.hook == nil {
+		c.hook = func(_ string, _ int) {}
+	}
+	return dump(c)
 }
 
-//DumpWithWait dumps a split.to link while taking a blocking function that will be called at the end of every loop
-func DumpWithWait(client http.Client, url string, limit int, wait func()) ([]string, error) {
-	return dump(client, url, limit, wait)
-}
+//dump is the actual implementation of Dump
+func dump(c config) ([]string, error) {
+	var err error
 
-func dump(client http.Client, url string, limit int, wait func()) ([]string, error) {
+	r, err2 := http.NewRequestWithContext(c.context, "HEAD", c.url, nil)
+	if err2 != nil {
+		return nil, fmt.Errorf("error creating request: %w", err2)
+	}
 	seen := make(map[string]int)
 	for {
-		res, err := client.Head(url)
-		if err != nil {
-			return nil, err
+		res, err3 := c.client.Do(r)
+		if err3 != nil {
+			err = err3
+			switch {
+			case errors.Is(err3, context.Canceled):
+				err = context.Canceled
+			}
+			break
 		}
 		dest := res.Request.URL.String()
+		_ = res.Body.Close()
 		if dest == "" {
-			return nil, errors.New(`location is empty`)
+			err = errors.New(`location is empty`)
+			break
 		}
-		if _, ok := seen[dest]; ok {
-			seen[dest]++
-		} else {
-			seen[dest] = 1
-		}
+
+		seen[dest]++
+
+		c.hook(dest, seen[dest])
+
 		stop := true
 		for _, count := range seen {
-			if count < limit {
+			if count < c.limit {
 				stop = false
 				break
 			}
@@ -43,11 +80,12 @@ func dump(client http.Client, url string, limit int, wait func()) ([]string, err
 		if stop {
 			break
 		}
-		wait()
+		c.wait()
 	}
 	urls := make([]string, 0, len(seen))
-	for url, _ := range seen {
+	for url := range seen {
 		urls = append(urls, url)
 	}
-	return urls, nil
+
+	return urls, err
 }

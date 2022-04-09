@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"github.com/Thunder33345/splitdumper"
 	"github.com/jessevdk/go-flags"
+	"github.com/thunder33345/splitdumper"
 	"net/http"
 	"os"
+	"os/signal"
 	"sort"
 	"time"
 )
@@ -40,20 +42,26 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	handleExit(func() {
+		cancel()
+	})
+
+	client := *http.DefaultClient
+	client.Timeout = opts.Timeout
+	sleeper := func() {
+		time.Sleep(opts.Wait)
+	}
 	for _, url := range opts.Args.Urls {
-		client := *http.DefaultClient
-		client.Timeout = opts.Timeout
 		if !opts.Raw {
 			fmt.Printf(`Dumping urls from: %s`+"\n", url)
 		}
 
-		urls, err := splitdumper.DumpWithWait(client, url, opts.Limit, func() {
-			time.Sleep(opts.Wait)
-		})
+		urls, err := splitdumper.Dump(url, opts.Limit, splitdumper.WithClient(&client), splitdumper.WithWait(sleeper), splitdumper.WithContext(ctx))
 		if err != nil {
 			fmt.Printf(`Error dumping domain on "%s": %v`, url, err)
-			os.Exit(2)
-			return
+			fmt.Println()
 		}
 		if !opts.Raw {
 			fmt.Printf("Found %d destinations:\n", len(urls))
@@ -62,5 +70,20 @@ func main() {
 		for _, dest := range urls {
 			fmt.Println(dest)
 		}
+		if err != nil {
+			fmt.Printf("Partial results")
+			os.Exit(2)
+			return
+		}
 	}
+}
+
+func handleExit(cb func()) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		for range c {
+			cb()
+		}
+	}()
 }
