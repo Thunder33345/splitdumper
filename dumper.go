@@ -11,6 +11,7 @@ import (
 //Dump dumps a split.to link with given list of Option
 //Url is the split.to link to dump
 //limit is the minimum times each destination needs to be seen
+//use WithBreaker to define how the halting behavior
 //returns a list of destination links
 //presence of error denotes if links should be considered partial/incomplete
 //When given context gets cancelled, error will be context.Canceled
@@ -21,6 +22,7 @@ func Dump(url string, limit int, opts ...Option) ([]string, error) {
 		url:     url,
 		limit:   limit,
 		context: context.Background(),
+		breaker: ConservativeBreaker(),
 	}
 	for _, o := range opts {
 		o(&c)
@@ -72,15 +74,8 @@ loop:
 
 		c.hook(dest, seen[dest])
 
-		ready := true
-		for _, count := range seen {
-			if count < c.limit {
-				ready = false
-				break
-			}
-		}
-		if ready && seen[dest] > c.limit {
-			break loop
+		if c.breaker(c.limit, dest, seen) {
+			break
 		}
 
 		select {

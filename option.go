@@ -19,7 +19,8 @@ type config struct {
 	// wait will be called everytime the job an url is obtained, can be used to pause between request
 	wait func()
 	// hook allows application to get realtime progress
-	hook func(url string, seen int)
+	hook    func(url string, seen int)
+	breaker Breaker
 }
 
 //Option is a function that can be used to configure the Dump function
