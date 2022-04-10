@@ -9,7 +9,8 @@ import (
 )
 
 //Dump dumps a split.to link with given list of Option
-//Url is the split.to link to dump, limit is the minimum requirement for each links to be seen
+//Url is the split.to link to dump
+//limit is the minimum times each destination needs to be seen
 //returns a list of destination links
 //presence of error denotes if links should be considered partial/incomplete
 //When given context gets cancelled, error will be context.Canceled
@@ -71,16 +72,17 @@ loop:
 
 		c.hook(dest, seen[dest])
 
-		stop := true
+		ready := true
 		for _, count := range seen {
 			if count < c.limit {
-				stop = false
+				ready = false
 				break
 			}
 		}
-		if stop {
-			break
+		if ready && seen[dest] > c.limit {
+			break loop
 		}
+
 		select {
 		case <-c.context.Done():
 			err = c.context.Err()
