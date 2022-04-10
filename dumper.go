@@ -49,6 +49,7 @@ func dump(c config) ([]string, error) {
 		return nil, fmt.Errorf("error creating request: %w", err2)
 	}
 	seen := make(map[string]int)
+loop:
 	for {
 		res, err3 := c.client.Do(r)
 		if err3 != nil {
@@ -79,6 +80,12 @@ func dump(c config) ([]string, error) {
 		}
 		if stop {
 			break
+		}
+		select {
+		case <-c.context.Done():
+			err = c.context.Err()
+			break loop
+		default:
 		}
 		c.wait()
 	}
