@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	netUrl "net/url"
 	"time"
 )
 
@@ -34,6 +35,23 @@ func Dump(url string, limit int, opts ...Option) ([]string, error) {
 		hc.Timeout = timeout
 		c.client = &hc
 	}
+
+	urlF, err := netUrl.Parse(c.url)
+	if err != nil {
+		return nil, err
+	}
+
+	c.client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		switch {
+		case len(via) > 10: //stop if over 10 redirects
+			return http.ErrUseLastResponse
+		case req.URL.Host == urlF.Host: //allow if same host
+			return nil
+		}
+
+		return http.ErrUseLastResponse
+	}
+
 	if c.wait == nil {
 		c.wait = func() {}
 	}
@@ -63,7 +81,7 @@ loop:
 			}
 			break
 		}
-		dest := res.Request.URL.String()
+		dest := res.Header.Get("Location")
 		_ = res.Body.Close()
 		if dest == "" {
 			err = errors.New(`location is empty`)

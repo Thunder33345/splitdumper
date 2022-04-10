@@ -58,7 +58,7 @@ func main() {
 			fmt.Printf(`Dumping urls from: %s`+"\n", url)
 		}
 
-		urls, err := splitdumper.Dump(url, opts.Limit, splitdumper.WithClient(&client), splitdumper.WithWait(sleeper), splitdumper.WithContext(ctx))
+		urls, err := splitdumper.Dump(url, opts.Limit, splitdumper.WithClient(client), splitdumper.WithWait(sleeper), splitdumper.WithContext(ctx))
 		if err != nil {
 			fmt.Printf(`Error dumping domain on "%s": %v`, url, err)
 			fmt.Println()

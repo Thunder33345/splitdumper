@@ -27,9 +27,11 @@ type config struct {
 type Option func(*config)
 
 //WithClient configures a http client to use
-func WithClient(client *http.Client) Option {
+//Only non pointer client will be accepted as internally the given client will be modified
+//The client's CheckRedirect function will be overwritten to ignore external sites
+func WithClient(client http.Client) Option {
 	return func(c *config) {
-		c.client = client
+		c.client = &client
 	}
 }
 
