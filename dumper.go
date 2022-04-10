@@ -51,7 +51,7 @@ func dump(c config) ([]string, error) {
 	if err2 != nil {
 		return nil, fmt.Errorf("error creating request: %w", err2)
 	}
-	seen := make(map[string]int)
+	record := make(map[string]int)
 loop:
 	for {
 		res, err3 := c.client.Do(r)
@@ -70,11 +70,11 @@ loop:
 			break
 		}
 
-		seen[dest]++
+		record[dest]++
 
-		c.hook(dest, seen[dest])
+		c.hook(dest, record[dest])
 
-		if c.breaker(c.limit, dest, seen) {
+		if c.breaker(c.limit, dest, record) {
 			break
 		}
 
@@ -86,8 +86,8 @@ loop:
 		}
 		c.wait()
 	}
-	urls := make([]string, 0, len(seen))
-	for url := range seen {
+	urls := make([]string, 0, len(record))
+	for url := range record {
 		urls = append(urls, url)
 	}
 
