@@ -58,12 +58,20 @@ func main() {
 			fmt.Printf(`Dumping urls from: %s`+"\n", url)
 		}
 
-		urls, err := splitdumper.Dump(url, opts.Limit, splitdumper.WithClient(client), splitdumper.WithWait(sleeper), splitdumper.WithContext(ctx))
+		urls, err := splitdumper.Dump(url, opts.Limit, splitdumper.WithClient(&client), splitdumper.WithWait(sleeper), splitdumper.WithContext(ctx))
 		if err != nil {
-			fmt.Printf(`Error dumping domain on "%s": %v`, url, err)
+			fmt.Printf(`Error dumping domain on "%s": `, url)
+			if err == context.Canceled {
+				fmt.Print("Operation aborted by the user")
+			} else {
+				fmt.Printf(`%v`, err)
+			}
 			fmt.Println()
 		}
 		if !opts.Raw {
+			if err != nil {
+				fmt.Print("(Incomplete)")
+			}
 			fmt.Printf("Found %d destinations:\n", len(urls))
 		}
 		sort.Strings(urls)
@@ -71,7 +79,6 @@ func main() {
 			fmt.Println(dest)
 		}
 		if err != nil {
-			fmt.Printf("Partial results")
 			os.Exit(2)
 			return
 		}
