@@ -70,9 +70,9 @@ loop:
 		res, err3 := c.client.Do(r)
 		if err3 != nil {
 			err = err3
-			switch {
-			case errors.Is(err3, context.Canceled):
-				err = context.Canceled
+			if errors.Is(err3, c.context.Err()) {
+				//handle error caused by context cancel or timeout
+				err = c.context.Err()
 			}
 			break
 		}
