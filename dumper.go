@@ -36,20 +36,15 @@ func Dump(url string, limit int, opts ...Option) ([]string, error) {
 		c.client = &hc
 	}
 
-	urlF, err := netUrl.Parse(c.url)
-	if err != nil {
-		return nil, err
-	}
-
-	c.client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		switch {
-		case len(via) > 10: //stop if over 10 redirects
-			return http.ErrUseLastResponse
-		case req.URL.Host == urlF.Host: //allow if same host
-			return nil
+	if !c.fullTrace {
+		urlF, err := netUrl.Parse(c.url)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing url: %w", err)
 		}
 
-		return http.ErrUseLastResponse
+		tmp := *c.client
+		c.client = &tmp
+		c.client.CheckRedirect = redirectChecker(urlF.Host)
 	}
 
 	if c.wait == nil {
@@ -81,10 +76,17 @@ loop:
 			}
 			break
 		}
-		dest := res.Header.Get("Location")
 		_ = res.Body.Close()
+
+		var dest string
+		if !c.fullTrace {
+			dest = res.Header.Get("Location")
+		} else {
+			dest = res.Request.URL.String()
+		}
+
 		if dest == "" {
-			err = errors.New(`location is empty`)
+			err = fmt.Errorf("returned destination is emtpy on %s", c.url)
 			break
 		}
 
@@ -110,4 +112,13 @@ loop:
 	}
 
 	return urls, err
+}
+
+func redirectChecker(host string) func(req *http.Request, via []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
+		if req.URL.Host == host && len(via) < 10 {
+			return nil
+		}
+		return http.ErrUseLastResponse
+	}
 }

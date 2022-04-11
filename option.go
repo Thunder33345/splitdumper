@@ -12,6 +12,9 @@ type config struct {
 	client *http.Client
 	// url the url to dump
 	url string
+	// fullTrace if true, dump will follow and visit external sites to get the final destination
+	// false by default, which only accesses the url to get the destination via "location" header, without visiting it
+	fullTrace bool
 	// limit is the minimum times a destination should be seen
 	limit int
 	// context is for cancellation
@@ -27,11 +30,19 @@ type config struct {
 type Option func(*config)
 
 //WithClient configures a http client to use
-//Only non pointer client will be accepted as internally the given client will be modified
-//The client's CheckRedirect function will be overwritten to ignore external sites
-func WithClient(client http.Client) Option {
+//Depending on trace mode the client's CheckRedirect function could be overwritten
+//If the client has to be overwritten, it will be dereference-ed first
+func WithClient(client *http.Client) Option {
 	return func(c *config) {
-		c.client = &client
+		c.client = client
+	}
+}
+
+//WithFullTrace configures the Dump function to visit external sites to get the final destination
+//by default it will only send HEAD request to the url and get the location via "location" header
+func WithFullTrace() Option {
+	return func(c *config) {
+		c.fullTrace = true
 	}
 }
 
