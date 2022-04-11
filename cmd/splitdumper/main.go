@@ -16,7 +16,10 @@ var opts struct {
 	Timeout time.Duration `short:"t" long:"timeout" description:"Sets the client timeout" default:"5s"`
 	Wait    time.Duration `short:"w" long:"wait" description:"Sets the wait time after crawling"  default:"50ms"`
 	Limit   int           `short:"l" long:"limit" description:"How many times all url should be seen before stopping" default:"3"`
-	Raw     bool          `short:"r" long:"raw" description:"Outputs only the end result"`
+	Full    bool          `short:"f" long:"full" description:"Follow the redirect for final destination(will access out of the URLs host)"`
+	Raw     bool          `short:"r" long:"raw" description:"Raw format only the end result, and Error'"`
+	Text    bool          `long:"text" description:"(Default)Text format meant for human consumption'"`
+	JSON    bool          `short:"j" long:"json" description:"JSON format that can be parsed by other tools'"`
 	Args    struct {
 		Urls []string `description:"The urls to dump (required)" required:"1"`
 	} `positional-args:"yes"`
@@ -42,6 +45,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	ft, isOk := getFormatter()
+	if !isOk {
+		fmt.Printf("Cannot select multiple formatter")
+		os.Exit(1)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	handleExit(func() {
@@ -53,36 +62,50 @@ func main() {
 	sleeper := func() {
 		time.Sleep(opts.Wait)
 	}
-	for _, url := range opts.Args.Urls {
-		if !opts.Raw {
-			fmt.Printf(`Dumping urls from: %s`+"\n", url)
-		}
 
-		urls, err := splitdumper.Dump(url, opts.Limit, splitdumper.WithClient(&client), splitdumper.WithWait(sleeper), splitdumper.WithContext(ctx))
-		if err != nil {
-			fmt.Printf(`Error dumping domain on "%s": `, url)
-			if err == context.Canceled {
-				fmt.Print("Operation aborted by the user")
-			} else {
-				fmt.Printf(`%v`, err)
-			}
-			fmt.Println()
-		}
-		if !opts.Raw {
-			if err != nil {
-				fmt.Print("(Incomplete)")
-			}
-			fmt.Printf("Found %d destinations:\n", len(urls))
-		}
+	options := []splitdumper.Option{
+		splitdumper.WithClient(&client), splitdumper.WithWait(sleeper), splitdumper.WithContext(ctx),
+	}
+	if opts.Full {
+		options = append(options, splitdumper.WithFullTrace())
+	}
+
+	var all []Result
+	var hasError bool
+
+	for _, url := range opts.Args.Urls {
+		output(ft.Start(url))
+		urls, errD := splitdumper.Dump(url, opts.Limit, options...)
+
 		sort.Strings(urls)
-		for _, dest := range urls {
-			fmt.Println(dest)
-		}
-		if err != nil {
-			os.Exit(2)
-			return
+
+		output(ft.Result(url, urls, errD))
+		all = append(all, Result{Url: url, Destinations: urls, Error: errD})
+		if errD != nil {
+			hasError = true
+			if errD == ctx.Err() {
+				break
+			}
 		}
 	}
+	output(ft.Complete(all))
+	if hasError {
+		os.Exit(2)
+	}
+}
+
+var hasNewline = true
+
+func output(str string) {
+	if str == "" {
+		return
+	}
+	if !hasNewline {
+		fmt.Print("\n")
+	} else {
+		hasNewline = false
+	}
+	fmt.Print(str)
 }
 
 func handleExit(cb func()) {
@@ -93,4 +116,31 @@ func handleExit(cb func()) {
 			cb()
 		}
 	}()
+}
+
+func getFormatter() (formatter, bool) {
+	var ft formatter
+	if opts.Raw {
+		if ft != nil {
+			return ft, false
+		}
+		ft = rawFormat{}
+	}
+	if opts.Text {
+		if ft != nil {
+			return ft, false
+		}
+		ft = textFormat{}
+	}
+	if opts.JSON {
+		if ft != nil {
+			return ft, false
+		}
+		ft = jsonFormat{}
+	}
+
+	if ft == nil {
+		ft = textFormat{}
+	}
+	return ft, true
 }
