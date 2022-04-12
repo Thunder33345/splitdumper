@@ -108,7 +108,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cancel()
 			}
 			m.quitting = true
-			return m, tea.Quit
+			return m, func() tea.Msg {
+				time.Sleep(time.Millisecond * 100) //hack: sleep to make sure resultMsg is received before we quit
+				return tea.Quit()
+			}
 		}
 
 		if key.Matches(msg, m.keyMap.Execute) {
