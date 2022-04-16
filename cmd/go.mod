@@ -8,7 +8,7 @@ require (
 	github.com/charmbracelet/lipgloss v0.5.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/muesli/reflow v0.3.0
-	github.com/thunder33345/splitdumper v0.0.0-20220412165118-e1a81e55c42b
+	github.com/thunder33345/splitdumper v0.0.0-20220412180851-b8c18c467937
 	golang.org/x/term v0.0.0-20220411215600-e5f449aeb171
 )
 
@@ -21,5 +21,5 @@ require (
 	github.com/muesli/ansi v0.0.0-20211031195517-c9f0611b6c70 // indirect
 	github.com/muesli/termenv v0.11.1-0.20220212125758-44cd13922739 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	golang.org/x/sys v0.0.0-20220412071739-889880a91fd5 // indirect
+	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
 )
